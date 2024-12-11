@@ -1,4 +1,4 @@
-// Contact Form - Updated November 4, 2024
+// Contact Form - Updated December 11, 2024
 function noop() { }
 function run(fn) {
     return fn();
@@ -531,7 +531,6 @@ class SvelteComponent {
     }
 }
 
-const matchIconName = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const stringToIcon = (value, validate, allowSimpleName, provider = "") => {
   const colonSeparated = value.split(":");
   if (value.slice(0, 1) === "@") {
@@ -578,7 +577,9 @@ const validateIconName = (icon, allowSimpleName) => {
   if (!icon) {
     return false;
   }
-  return !!((icon.provider === "" || icon.provider.match(matchIconName)) && (allowSimpleName && icon.prefix === "" || icon.prefix.match(matchIconName)) && icon.name.match(matchIconName));
+  return !!// Check prefix: cannot be empty, unless allowSimpleName is enabled
+  // Check name: cannot be empty
+  ((allowSimpleName && icon.prefix === "" || !!icon.prefix) && !!icon.name);
 };
 
 const defaultIconDimensions = Object.freeze(
@@ -653,7 +654,7 @@ function getIconsTree(data, names) {
     }
     return resolved[name];
   }
-  (names || Object.keys(icons).concat(Object.keys(aliases))).forEach(resolve);
+  (Object.keys(icons).concat(Object.keys(aliases))).forEach(resolve);
   return resolved;
 }
 
@@ -722,10 +723,15 @@ function quicklyValidateIconSet(obj) {
   const icons = data.icons;
   for (const name in icons) {
     const icon = icons[name];
-    if (!name.match(matchIconName) || typeof icon.body !== "string" || !checkOptionalProps(
-      icon,
-      defaultExtendedIconProps
-    )) {
+    if (
+      // Name cannot be empty
+      !name || // Must have body
+      typeof icon.body !== "string" || // Check other props
+      !checkOptionalProps(
+        icon,
+        defaultExtendedIconProps
+      )
+    ) {
       return null;
     }
   }
@@ -733,10 +739,15 @@ function quicklyValidateIconSet(obj) {
   for (const name in aliases) {
     const icon = aliases[name];
     const parent = icon.parent;
-    if (!name.match(matchIconName) || typeof parent !== "string" || !icons[parent] && !aliases[parent] || !checkOptionalProps(
-      icon,
-      defaultExtendedIconProps
-    )) {
+    if (
+      // Name cannot be empty
+      !name || // Parent must be set and point to existing icon
+      typeof parent !== "string" || !icons[parent] && !aliases[parent] || // Check other props
+      !checkOptionalProps(
+        icon,
+        defaultExtendedIconProps
+      )
+    ) {
       return null;
     }
   }
@@ -792,7 +803,12 @@ function addIcon(name, data) {
     return false;
   }
   const storage = getStorage(icon.provider, icon.prefix);
-  return addIconToStorage(storage, icon.name, data);
+  if (data) {
+    return addIconToStorage(storage, icon.name, data);
+  } else {
+    storage.missing.add(icon.name);
+    return true;
+  }
 }
 function addCollection(data, provider) {
   if (typeof data !== "object") {
@@ -806,7 +822,7 @@ function addCollection(data, provider) {
     if (quicklyValidateIconSet(data)) {
       data.prefix = "";
       parseIconSet(data, (name, icon) => {
-        if (icon && addIcon(name, icon)) {
+        if (addIcon(name, icon)) {
           added = true;
         }
       });
