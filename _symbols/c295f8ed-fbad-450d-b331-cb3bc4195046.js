@@ -1,4 +1,4 @@
-// Social Links - Updated June 20, 2025
+// Social Links - Updated July 10, 2026
 function noop() { }
 function run(fn) {
     return fn();
